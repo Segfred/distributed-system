@@ -1,0 +1,12 @@
+
+1：应用程序提供很多输入文件，map函数，reduce函数和Reduce任务的数量(nReduce)
+2：master基于这些知识而建立。它启动一个一个RPC的服务器(参照master_rpc.go文件)，等待workers来向它注册(使用在master.go中定义的RPC方法)。
+当任务变得可用(在第4步和第5步的时候)，schedule方法(定义在schedule.go中)决定如何将这些任务分配给workers，还有就是怎么处理workers的错误。
+3：master将每一个输入文件作为一个map任务，然后每个任务至少调用一次doMap方法(定义在common_map.go)。任务直接运行(当调用Sequential方法)或者
+通过触发worker上的DoTask RPC调用(worker.go)。每一个doMap会调用合适的文件，在文件内容上调用map函数，然后为每个map文件产生nReduce文件。
+因此，在全部的map任务执行完成之后这里将会有nMap x nReduce文件。 f0-0, ..., f0-0, f0-, ..., f<#files-1>-0, ... f<#files-1>-.
+每个worker必须能读取其他worker写的文件以及输入文件（每个文件都被哈希成nReduce个文件，nMap个文件最后会生成nMap * nReduce个文件）
+4：master的下一步工作就是为reduce任务至少调用一次doReduce函数(定义在common_reduce.go)，和doMap函数一样，它可以直接运行或者通过worker运行。
+doReduce方法收集每一个map产生的reduce文件，然后在这些文件之上调用reduce函数。这些产生最后的nReduce个结果文件。
+5：master调用mr.merge方法(master_splitmerge.go),它将会合并上面产生的全部nReduce结果文件到一个输出。
+6: master发出hutdown的RPC调用给他所有的workers，然后关闭自己的RPC服务器。
